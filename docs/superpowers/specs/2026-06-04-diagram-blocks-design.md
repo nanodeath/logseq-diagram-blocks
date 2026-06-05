@@ -66,6 +66,7 @@ Three layers; Logseq coupling quarantined in one adapter.
 ```
 
 - **`core/`** — no Logseq knowledge. `DiagramRenderer` is the extension seam: a v2 backend (PlantUML via Kroki, local server, or embedded engine) implements the interface and registers its languages. Adding a backend requires only new code, never modification of existing renderers or consumers.
+  - Renderer backends stay directory modules inside the single plugin package (no monorepo/package split — there is no second consumer; the clean boundary makes later extraction cheap if one appears). They are, however, **lazy-loaded bundle chunks** (Vite dynamic import): plugin startup loads only adapter + viewer; the multi-MB mermaid chunk loads on first diagram encountered, and future backends add zero weight for users who never use their languages.
 - **`viewer/`** — takes an SVG (or typed error) and renders the interaction layer. Logseq-free, enabling a standalone dev harness.
 - **`logseq-adapter/`** — the only code touching `logseq.*`. If the experimental API breaks, or when targeting the DB version's official block-renderer API, this layer is replaced; core and viewer are untouched.
 
@@ -139,6 +140,6 @@ Via `logseq.useSettingsSchema`, deliberately minimal:
 
 ## v2 Direction (door open, not commitments)
 
-- **PlantUML:** new `DiagramRenderer` backend. Engine options under evaluation (deep-research report pending as of this writing): embedded plantuml.js (official but dormant since ~2023, large bundle, frozen at an old engine version) vs user-run local server (`plantuml.jar` / native binary / Docker Kroki) vs remote kroki.io. PlantUML core itself is healthy (monthly releases, v1.2026.5 in May 2026).
+- **PlantUML:** new `DiagramRenderer` backend. Researched 2026-06-04 (deep-research, 15 primary sources): the published `plantuml.js`/`plantuml-core` repos are discontinued — frozen at engine 1.2023.2 with PNG-only output (incompatible with our SVG viewer). However, PlantUML now ships a current TeaVM-based in-browser build tracking v1.2026.x; caveats are Viz.js layout (verified weaker than native graphviz/smetana/ELK on complex diagrams), uncertain stdlib freshness (C4/AWS icons), and no published bundle-size or packaging data. Likely v2 shape: embedded TeaVM build as a zero-setup tier for simple diagrams (pending a spike) + server URL setting (local `plantuml.jar`/native binary or Kroki, remote kroki.io) as the quality path. PlantUML core itself is healthy (monthly releases, v1.2026.5 in May 2026).
 - **Kroki backend** would also unlock graphviz, d2, and ~20 formats with one integration (top non-PlantUML community asks).
 - **DB-version adapter** targeting its official editor block-renderer API.
