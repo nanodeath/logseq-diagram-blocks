@@ -15,9 +15,13 @@ export class MermaidRenderer implements DiagramRenderer {
 
   constructor(private load: MermaidLoader) {}
 
+  // bindFunctions omitted; widen if click handlers are ever needed
   async render(code: string, opts: RenderOptions): Promise<RenderResult> {
     try {
-      this.apiPromise ??= this.load()
+      this.apiPromise ??= this.load().catch((e) => {
+        this.apiPromise = undefined
+        throw e
+      })
       const api = await this.apiPromise
       // mermaid's initialize is global state in the host page; setting it per
       // render keeps theme switches correct without a separate config channel.

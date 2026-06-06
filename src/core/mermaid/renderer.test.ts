@@ -50,6 +50,20 @@ describe('MermaidRenderer', () => {
     expect(loader).toHaveBeenCalledTimes(1)
   })
 
+  it('retries the loader if the first load fails', async () => {
+    let attempt = 0
+    const loader = vi.fn(async () => {
+      if (++attempt === 1) throw new Error('not ready')
+      return fakeMermaid()
+    })
+    const renderer = new MermaidRenderer(loader)
+    const first = await renderer.render('graph TD; A-->B', { theme: 'default' })
+    expect(first.ok).toBe(false)
+    const second = await renderer.render('graph TD; A-->B', { theme: 'default' })
+    expect(second.ok).toBe(true)
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
   it('generates unique element ids per render', async () => {
     const api = fakeMermaid()
     const r = new MermaidRenderer(async () => api)
