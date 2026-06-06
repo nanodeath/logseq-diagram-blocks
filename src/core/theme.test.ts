@@ -38,4 +38,25 @@ describe('ThemeStore', () => {
     store.setMode('dark')
     expect(cb).not.toHaveBeenCalled()
   })
+
+  it('notifies when setSetting changes the resolved theme', () => {
+    const store = new ThemeStore('auto', 'light')
+    const cb = vi.fn()
+    store.subscribe(cb)
+    store.setSetting('forest')
+    expect(cb).toHaveBeenCalledWith('forest')
+  })
+
+  it('keeps notifying later subscribers when an earlier listener throws', () => {
+    const store = new ThemeStore('auto', 'light')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    store.subscribe(() => {
+      throw new Error('boom')
+    })
+    const cb = vi.fn()
+    store.subscribe(cb)
+    store.setMode('dark')
+    expect(cb).toHaveBeenCalledWith('dark')
+    errorSpy.mockRestore()
+  })
 })

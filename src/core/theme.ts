@@ -37,6 +37,14 @@ export class ThemeStore {
     this.setting = setting
     this.mode = mode
     const after = this.theme
-    if (after !== before) this.listeners.forEach((fn) => fn(after))
+    if (after !== before) {
+      for (const fn of [...this.listeners]) {
+        try {
+          fn(after)
+        } catch (e) {
+          console.error('[diagram-blocks] ThemeStore listener threw', e)
+        }
+      }
+    }
   }
 }
