@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeStore } from '../core/theme'
 import type { DiagramRenderer, RenderResult } from '../core/types'
 import { renderInto } from './render-into'
+import * as overlayModule from './overlay'
 
 const okRenderer: DiagramRenderer = {
   languages: ['mermaid'],
@@ -104,5 +105,73 @@ describe('renderInto', () => {
     await tick()
     // container was cleared by dispose and must not have been re-populated
     expect(el.querySelector('svg')).toBeNull()
+  })
+
+  it('sets opaque white background on svg when pinned light-designed theme contradicts dark mode', async () => {
+    const el = document.createElement('div')
+    renderInto(el, 'graph TD; A-->B', {
+      renderer: okRenderer,
+      themeStore: new ThemeStore('forest', 'dark'),
+      pngScale: 2,
+    })
+    await tick()
+    const svg = el.querySelector<HTMLElement>('svg')
+    // jsdom normalizes hex to rgb — accept either form
+    expect(svg?.style.background).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/)
+    expect(svg?.style.borderRadius).toBe('6px')
+    expect(svg?.style.padding).toBe('8px')
+  })
+
+  it('leaves background transparent when auto-resolved theme matches mode', async () => {
+    const el = document.createElement('div')
+    renderInto(el, 'graph TD; A-->B', {
+      renderer: okRenderer,
+      themeStore: new ThemeStore('auto', 'light'),
+      pngScale: 2,
+    })
+    await tick()
+    const svg = el.querySelector<HTMLElement>('svg')
+    // background should not be set to an opaque color
+    expect(svg?.style.background).toBeFalsy()
+  })
+
+  it('clears background when re-rendering switches from mismatched to matched theme', async () => {
+    const el = document.createElement('div')
+    const store = new ThemeStore('forest', 'dark') // mismatch → white bg
+    renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, pngScale: 2 })
+    await tick()
+    // jsdom normalizes hex to rgb — accept either form
+    expect(el.querySelector<HTMLElement>('svg')?.style.background).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/)
+
+    // Switch to auto + dark → resolves to 'dark' which matches dark mode
+    store.setSetting('auto')
+    // setMode would also work, but setSetting changes the resolved theme
+    store.setMode('dark') // stays dark; after setSetting('auto') resolved = 'dark'
+    await tick()
+    const svg = el.querySelector<HTMLElement>('svg')
+    // After clearing, background should be empty string (no inline style)
+    expect(svg?.style.background).toBe('')
+  })
+
+  it('passes background to openOverlay when theme contradicts mode', async () => {
+    const openOverlaySpy = vi.spyOn(overlayModule, 'openOverlay')
+    const el = document.createElement('div')
+    renderInto(el, 'graph TD; A-->B', {
+      renderer: okRenderer,
+      themeStore: new ThemeStore('forest', 'dark'),
+      pngScale: 2,
+    })
+    await tick()
+
+    // Click the fullscreen button to trigger openOverlay
+    const fullscreenBtn = el.querySelector<HTMLButtonElement>('[title="Fullscreen"]')
+    fullscreenBtn?.click()
+
+    expect(openOverlaySpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      '#ffffff',
+    )
+    openOverlaySpy.mockRestore()
   })
 })

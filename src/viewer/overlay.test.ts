@@ -230,4 +230,23 @@ describe('openOverlay realm routing', () => {
     // transform should be set to a translate/scale string
     expect(stage?.style.transform).toMatch(/translate/)
   })
+
+  it('applies background/borderRadius/padding to svg inside stage when background param provided', () => {
+    const hostDoc = document.implementation.createHTMLDocument('host')
+    openOverlay('<svg></svg>', hostDoc, '#ffffff')
+
+    const svg = hostDoc.body.querySelector<HTMLElement>('.diagram-blocks-overlay-stage svg')
+    // jsdom normalizes hex to rgb — accept either form
+    expect(svg?.style.background).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/)
+    expect(svg?.style.borderRadius).toBe('6px')
+    expect(svg?.style.padding).toBe('8px')
+  })
+
+  it('does not set background on svg inside stage when background param is omitted', () => {
+    const hostDoc = document.implementation.createHTMLDocument('host')
+    openOverlay('<svg></svg>', hostDoc)
+
+    const svg = hostDoc.body.querySelector<HTMLElement>('.diagram-blocks-overlay-stage svg')
+    expect(svg?.style.background).toBeFalsy()
+  })
 })

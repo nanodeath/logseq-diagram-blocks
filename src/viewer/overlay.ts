@@ -60,7 +60,7 @@ function applyTransform(el: HTMLElement, state: PanZoomState): void {
  * All pointer/wheel listeners are attached to elements within `doc`, so they
  * work correctly regardless of which realm the module was loaded in.
  */
-export function openOverlay(svgText: string, doc: Document = document): () => void {
+export function openOverlay(svgText: string, doc: Document = document, background?: string): () => void {
   // ── Backdrop ──────────────────────────────────────────────────────────────
   const backdrop = doc.createElement('div')
   backdrop.className = 'diagram-blocks-overlay'
@@ -96,6 +96,12 @@ export function openOverlay(svgText: string, doc: Document = document): () => vo
     svg.setAttribute('width', String(naturalW))
     svg.setAttribute('height', String(naturalH))
     svg.style.maxWidth = 'none'
+
+    if (background) {
+      svg.style.background = background
+      svg.style.borderRadius = '6px'
+      svg.style.padding = '8px'
+    }
   }
 
   // ── Viewport size ─────────────────────────────────────────────────────────

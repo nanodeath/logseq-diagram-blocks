@@ -5,6 +5,25 @@ export function resolveTheme(setting: ThemeSetting, mode: LogseqMode): DiagramTh
   return mode === 'dark' ? 'dark' : 'default'
 }
 
+/**
+ * Returns an opaque background color when the theme's design background
+ * contradicts the Logseq page mode, so that labels remain readable on the SVG.
+ *
+ * - Returns `undefined` (keep transparent) when theme and mode match:
+ *   light-designed themes ('default' | 'forest' | 'neutral' | 'base') on 'light',
+ *   and 'dark' on 'dark'.
+ * - Returns `'#ffffff'` for light-designed themes on mode 'dark'.
+ * - Returns `'#333333'` for theme 'dark' on mode 'light'.
+ */
+export function themeBackground(theme: DiagramTheme, mode: LogseqMode): string | undefined {
+  const isLightDesigned = theme !== 'dark'
+  if (isLightDesigned) {
+    return mode === 'dark' ? '#ffffff' : undefined
+  }
+  // theme === 'dark'
+  return mode === 'light' ? '#333333' : undefined
+}
+
 type Listener = (theme: DiagramTheme) => void
 
 export class ThemeStore {
@@ -12,11 +31,15 @@ export class ThemeStore {
 
   constructor(
     private setting: ThemeSetting,
-    private mode: LogseqMode,
+    private _mode: LogseqMode,
   ) {}
 
   get theme(): DiagramTheme {
-    return resolveTheme(this.setting, this.mode)
+    return resolveTheme(this.setting, this._mode)
+  }
+
+  get mode(): LogseqMode {
+    return this._mode
   }
 
   setMode(mode: LogseqMode): void {
@@ -24,7 +47,7 @@ export class ThemeStore {
   }
 
   setSetting(setting: ThemeSetting): void {
-    this.update(setting, this.mode)
+    this.update(setting, this._mode)
   }
 
   subscribe(fn: Listener): () => void {
@@ -35,7 +58,7 @@ export class ThemeStore {
   private update(setting: ThemeSetting, mode: LogseqMode): void {
     const before = this.theme
     this.setting = setting
-    this.mode = mode
+    this._mode = mode
     const after = this.theme
     if (after !== before) {
       for (const fn of [...this.listeners]) {

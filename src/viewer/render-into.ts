@@ -1,4 +1,4 @@
-import type { ThemeStore } from '../core/theme'
+import { themeBackground, type ThemeStore } from '../core/theme'
 import type { DiagramRenderer } from '../core/types'
 import { buildErrorCard } from './error-card'
 import { buildToolbar } from './toolbar'
@@ -40,11 +40,25 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
       return
     }
 
+    const bg = themeBackground(ctx.themeStore.theme, ctx.themeStore.mode)
+
     const figure = document.createElement('div')
     figure.className = 'diagram-blocks-figure'
     figure.innerHTML = result.svg
+    const svgEl = figure.querySelector<HTMLElement>('svg')
+    if (svgEl) {
+      if (bg) {
+        svgEl.style.background = bg
+        svgEl.style.borderRadius = '6px'
+        svgEl.style.padding = '8px'
+      } else {
+        svgEl.style.background = ''
+        svgEl.style.borderRadius = ''
+        svgEl.style.padding = ''
+      }
+    }
     const toolbar = buildToolbar({
-      onFullscreen: () => openOverlay(result.svg, hostDoc),
+      onFullscreen: () => openOverlay(result.svg, hostDoc, bg),
       onCopy: () => void copyDiagram(result.svg, ctx.pngScale, copyStrategies).then(ctx.onCopyDone),
       onEdit: ctx.onEdit,
     })
