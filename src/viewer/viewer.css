@@ -15,7 +15,7 @@
 }
 .diagram-blocks-error pre { white-space: pre-wrap; margin: 0; font-size: 12px; }
 .diagram-blocks-overlay {
-  position: fixed; inset: 0; z-index: 999; overflow: hidden;
+  position: fixed; inset: 0; z-index: 9999; overflow: hidden;
   background: var(--ls-primary-background-color, #1c1c1ce6);
 }
 .diagram-blocks-overlay-stage { width: 100%; height: 100%; display: grid; place-items: center; }

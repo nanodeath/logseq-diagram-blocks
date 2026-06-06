@@ -2,7 +2,7 @@ import type { ThemeStore } from '../core/theme'
 import type { DiagramRenderer } from '../core/types'
 import { buildErrorCard } from './error-card'
 import { buildToolbar } from './toolbar'
-import { copyDiagram } from './copy-png'
+import { copyDiagram, type CopyOutcome } from './copy-png'
 import { openOverlay } from './overlay'
 
 export interface ViewerContext {
@@ -10,6 +10,8 @@ export interface ViewerContext {
   themeStore: ThemeStore
   pngScale: number
   onEdit?: () => void
+  /** Called after a copy attempt completes; used by the adapter to show a toast. */
+  onCopyDone?: (outcome: CopyOutcome) => void
 }
 
 /** Render a diagram into `container`; returns a dispose function. */
@@ -33,7 +35,7 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
     figure.innerHTML = result.svg
     const toolbar = buildToolbar({
       onFullscreen: () => openOverlay(result.svg),
-      onCopy: () => void copyDiagram(result.svg, ctx.pngScale),
+      onCopy: () => void copyDiagram(result.svg, ctx.pngScale).then(ctx.onCopyDone),
       onEdit: ctx.onEdit,
     })
     figure.append(toolbar)

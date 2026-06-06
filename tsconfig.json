@@ -6,7 +6,10 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "types": ["vite/client"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "react": ["./src/host/react.ts"]
+    }
   },
   "include": ["src", "dev"]
 }
