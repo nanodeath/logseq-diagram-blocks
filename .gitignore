@@ -3,3 +3,12 @@ node_modules/
 dist/
 /vendors/
 .idea/
+
+# e2e scratch graph: only config.edn + pages/ are committed; Logseq writes the rest
+e2e/graph/**
+!e2e/graph/logseq/
+!e2e/graph/logseq/config.edn
+!e2e/graph/pages/
+!e2e/graph/pages/**
+# Logseq auto-generates contents.md as a sidebar contents page — not a fixture
+e2e/graph/pages/contents.md
