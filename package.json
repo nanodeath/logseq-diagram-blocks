@@ -5,6 +5,7 @@
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite dev",
+    "dev:harness": "vite dev --open /dev/index.html",
     "build": "vite build && node scripts/copy-vendors.mjs",
     "test": "vitest run"
   },
