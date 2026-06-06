@@ -56,7 +56,32 @@ with mermaid **11.15.0** (IIFE build) on branch `v1` at `eacc159`.
   fenced-code-plus #59. Validates the Task 8 theme-sync design
   (`getUserConfigs().preferredThemeMode` + `onThemeModeChanged` → re-render).
 
-### 6. Flatpak dev-loading notes
+### 6. Realm semantics (Task 8 dogfood findings)
+
+The plugin's module graph — including lazy viewer chunks — executes in the
+hidden plugin-sandbox iframe even though rendered elements live in the host
+page. Three bug classes followed; all fixed, recorded here for v2 work:
+
+- **Bare `document`/`navigator` are the iframe's.** Anything appended to
+  `document.body` lands in the invisible iframe (the fullscreen overlay bug);
+  clipboard calls run without focus or user activation and always reject (the
+  "Copy failed" bug). Rule: derive realm objects from the mounted element
+  (`el.ownerDocument`, `.defaultView`) — never from module globals.
+- **Third-party libs inherit the same trap.** panzoom attaches drag listeners
+  to *its* `document` (the iframe's), so panning silently did nothing.
+  Replaced with pointer-capture pan/zoom local to the host element; prefer
+  element-scoped listeners (`setPointerCapture`) over document-level ones.
+- **Host CSS bleeds into `foreignObject` HTML labels.** Logseq's direct
+  `p { color }` rule beats mermaid's inherited label color (gray-on-green in
+  pinned forest theme on a dark page). Fixed with a scoped
+  `color: inherit !important` backstop in viewer.css. Do NOT reach for
+  `htmlLabels: false` instead — mermaid then mis-measures SVG text and labels
+  overflow their nodes.
+- **Pinned themes that contradict the page mode** (light-designed forest on a
+  dark page) get an opaque theme-matched backing via `themeBackground()`;
+  matching combinations stay transparent.
+
+### 7. Flatpak dev-loading notes
 
 - Sandboxed Logseq needs `flatpak override --user
   --filesystem=/mnt/Data/Projects/logseq-graph-block:ro`; the plugin path appears
