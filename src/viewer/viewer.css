@@ -19,7 +19,9 @@
   position: fixed; inset: 0; z-index: 9999; /* must sit above Logseq's own UI (~1000) */ overflow: hidden;
   background: var(--ls-primary-background-color, #1c1c1ce6);
 }
-.diagram-blocks-overlay-stage { width: 100%; height: 100%; display: grid; place-items: center; }
+.diagram-blocks-overlay-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.diagram-blocks-overlay { cursor: grab; }
+.diagram-blocks-overlay.is-dragging { cursor: grabbing; }
 .diagram-blocks-overlay-close {
   position: fixed; top: 16px; right: 16px; font-size: 18px;
   padding: 6px 12px; border-radius: 6px; cursor: pointer;
