@@ -54,7 +54,7 @@ Theme changes apply to all visible diagrams immediately; `pngScale` applies to t
 
 ## Limitations
 
-- **PNG copy fallback:** Diagrams that use HTML labels (e.g. some flowchart `subgraph` titles, `foreignObject`-based nodes) cannot be serialized to a canvas-compatible PNG by the browser. For those diagrams the copy button falls back to writing the SVG source as text instead. The toolbar button still works — you'll just receive SVG on the clipboard rather than PNG.
+- **PNG copy fallback:** If PNG serialization fails unexpectedly (e.g. a clipboard restriction in the host environment), the copy button falls back to writing the SVG source as text and says so. With current Chromium-based Logseq this should be rare — HTML-label (`foreignObject`) diagrams copy as PNG normally.
 - **Mermaid only:** This version renders Mermaid diagrams. PlantUML and Kroki support are planned for v2.
 
 ## Roadmap

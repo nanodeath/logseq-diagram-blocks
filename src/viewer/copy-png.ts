@@ -1,5 +1,27 @@
 export type CopyOutcome = 'png' | 'svg' | 'failed'
 
+/** mermaid emits `width="100%"`, no height, and a viewBox. Loaded as an
+ *  <img>, that resolves to the default ~300×150 intrinsic size and the PNG
+ *  raster comes out cropped/letterboxed (issue #2). Pin explicit width/height
+ *  from the viewBox so the raster matches the diagram. DOMParser builds a
+ *  detached document — no layout, no realm sensitivity.
+ */
+export function withExplicitDimensions(svgText: string): string {
+  const root = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement
+  if (root.tagName !== 'svg') return svgText // parse failure → let the image loader report it
+  const viewBox = root.getAttribute('viewBox')?.split(/[\s,]+/).map(Number)
+  if (!viewBox || viewBox.length !== 4 || viewBox.some(Number.isNaN)) return svgText
+  const [, , width, height] = viewBox
+  for (const [attr, value] of [
+    ['width', width],
+    ['height', height],
+  ] as const) {
+    const current = root.getAttribute(attr)
+    if (!current || current.includes('%')) root.setAttribute(attr, String(value))
+  }
+  return new XMLSerializer().serializeToString(root)
+}
+
 export interface CopyStrategies {
   toPng(svgText: string, scale: number): Promise<Blob>
   writePng(blob: Blob): Promise<void>
@@ -22,26 +44,25 @@ export interface WindowGlobals {
 export function makeBrowserStrategies(win: WindowGlobals): CopyStrategies {
   return {
     async toPng(svgText, scale) {
-      const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' })
-      const url = win.URL.createObjectURL(svgBlob)
-      try {
-        const img = await loadImage(url, win.Image)
-        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-          throw new Error('SVG has no intrinsic dimensions')
-        }
-        const canvas = win.document.createElement('canvas')
-        canvas.width = img.naturalWidth * scale
-        canvas.height = img.naturalHeight * scale
-        const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('no 2d context')
-        ctx.scale(scale, scale)
-        ctx.drawImage(img, 0, 0)
-        return await new Promise<Blob>((resolve, reject) =>
-          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'),
-        )
-      } finally {
-        win.URL.revokeObjectURL(url)
+      // data: URL, NOT a blob: URL — Chromium taints the canvas when an SVG
+      // image containing <foreignObject> (mermaid htmlLabels output) is drawn
+      // from a blob: URL, killing toBlob with a SecurityError. The identical
+      // SVG from a data: URL rasterizes cleanly (probed both in issue #2).
+      const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(withExplicitDimensions(svgText))
+      const img = await loadImage(url, win.Image)
+      if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+        throw new Error('SVG has no intrinsic dimensions')
       }
+      const canvas = win.document.createElement('canvas')
+      canvas.width = img.naturalWidth * scale
+      canvas.height = img.naturalHeight * scale
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('no 2d context')
+      ctx.scale(scale, scale)
+      ctx.drawImage(img, 0, 0)
+      return await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'),
+      )
     },
     async writePng(blob) {
       await win.navigator.clipboard.write([new win.ClipboardItem({ 'image/png': blob })])
