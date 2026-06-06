@@ -10,6 +10,13 @@
   padding: 2px 8px; border-radius: 4px; border: 1px solid var(--ls-border-color, #8884);
   background: var(--ls-secondary-background-color, #2228); cursor: pointer;
 }
+/* Backstop for diagram types that still emit <foreignObject> HTML labels:
+   Logseq's direct `p { color }` rules beat mermaid's inherited label color,
+   so force inheritance back inside our diagrams. */
+.diagram-blocks-figure svg foreignObject p,
+.diagram-blocks-overlay-stage svg foreignObject p {
+  color: inherit !important;
+}
 .diagram-blocks-error {
   border: 1px solid #c0392b66; border-radius: 6px; padding: 8px 12px;
   display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
