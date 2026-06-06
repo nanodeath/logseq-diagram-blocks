@@ -24,6 +24,9 @@
   },
   "type": "module",
   "dependencies": {
+    "@iconify-json/fa6-brands": "^1.2.6",
+    "@iconify-json/fa6-regular": "^1.2.4",
+    "@iconify-json/fa6-solid": "^1.2.4",
     "@logseq/libs": "^0.0.17",
     "mermaid": "^11.15.0"
   },

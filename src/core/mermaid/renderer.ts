@@ -1,9 +1,12 @@
 import type { DiagramRenderer, RenderOptions, RenderResult } from '../types'
+import { fontAwesomePacks, type IconPack } from './icon-packs'
 
 /** Minimal surface of the mermaid global we rely on. */
 export interface MermaidApi {
   initialize(config: Record<string, unknown>): void
   render(id: string, code: string): Promise<{ svg: string }>
+  /** Optional: absent in pre-11.1 bundles; icon support degrades gracefully. */
+  registerIconPacks?(packs: IconPack[]): void
 }
 
 export type MermaidLoader = () => Promise<MermaidApi>
@@ -18,10 +21,18 @@ export class MermaidRenderer implements DiagramRenderer {
   // bindFunctions omitted; widen if click handlers are ever needed
   async render(code: string, opts: RenderOptions): Promise<RenderResult> {
     try {
-      this.apiPromise ??= this.load().catch((e) => {
-        this.apiPromise = undefined
-        throw e
-      })
+      this.apiPromise ??= this.load()
+        .then((api) => {
+          // Once per loaded api: back `fa:fa-name` label shorthand with inline
+          // SVG from the bundled FA6 packs (issue #1). Optional-chained so an
+          // older mermaid bundle without registerIconPacks still renders.
+          api.registerIconPacks?.(fontAwesomePacks)
+          return api
+        })
+        .catch((e) => {
+          this.apiPromise = undefined
+          throw e
+        })
       const api = await this.apiPromise
       // mermaid's initialize is global state in the host page; setting it per
       // render keeps theme switches correct without a separate config channel.
