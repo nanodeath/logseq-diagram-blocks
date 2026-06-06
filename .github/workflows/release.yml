@@ -1,0 +1,23 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - run: cp README.md icon.png dist/
+      - run: node -e "const p=JSON.parse(require('fs').readFileSync('package.json','utf8')); p.main='index.html'; require('fs').writeFileSync('dist/package.json', JSON.stringify(p,null,2));"
+      - run: cd dist && zip -r ../logseq-diagram-blocks-${{ github.ref_name }}.zip .
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: logseq-diagram-blocks-*.zip
