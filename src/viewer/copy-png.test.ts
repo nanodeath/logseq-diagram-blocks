@@ -32,4 +32,15 @@ describe('copyDiagram', () => {
     const result = await copyDiagram(svgText, 2, { toPng: fail, writePng: fail, writeText: fail })
     expect(result).toBe('failed')
   })
+
+  it('falls back to svg text when png clipboard write fails (e.g. no ClipboardItem)', async () => {
+    const toPng = vi.fn(async () => new Blob(['png'], { type: 'image/png' }))
+    const writePng = vi.fn(async () => {
+      throw new Error('ClipboardItem is not defined')
+    })
+    const writeText = vi.fn(async () => {})
+    const result = await copyDiagram(svgText, 2, { toPng, writePng, writeText })
+    expect(result).toBe('svg')
+    expect(writeText).toHaveBeenCalledWith(svgText)
+  })
 })

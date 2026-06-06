@@ -32,6 +32,9 @@ export const browserStrategies: CopyStrategies = {
     const url = URL.createObjectURL(svgBlob)
     try {
       const img = await loadImage(url)
+      if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+        throw new Error('SVG has no intrinsic dimensions')
+      }
       const canvas = document.createElement('canvas')
       canvas.width = img.naturalWidth * scale
       canvas.height = img.naturalHeight * scale

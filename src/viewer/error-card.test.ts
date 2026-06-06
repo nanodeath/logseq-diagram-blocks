@@ -14,4 +14,10 @@ describe('buildErrorCard', () => {
     const el = buildErrorCard({ message: 'boom' }, undefined)
     expect(el.querySelector('button[data-action="edit"]')).toBeNull()
   })
+
+  it('does not inject the message as HTML', () => {
+    const el = buildErrorCard({ message: '<img src=x onerror=alert(1)>' }, undefined)
+    expect(el.querySelector('img')).toBeNull()
+    expect(el.textContent).toContain('<img src=x onerror=alert(1)>')
+  })
 })
