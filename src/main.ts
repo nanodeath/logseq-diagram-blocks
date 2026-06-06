@@ -31,9 +31,15 @@ async function main() {
     (configs.preferredThemeMode as LogseqMode) ?? 'light',
   )
 
-  logseq.App.onThemeModeChanged(({ mode }) => themeStore.setMode(mode as LogseqMode))
-  logseq.onSettingsChanged((settings) => {
+  const offTheme = logseq.App.onThemeModeChanged(({ mode }) => themeStore.setMode(mode as LogseqMode))
+  const offSettings = logseq.onSettingsChanged((settings) => {
+    // pngScale changes apply on the next natural re-render (theme change or content edit), not immediately.
     themeStore.setSetting((settings?.theme as ThemeSetting) ?? 'auto')
+  })
+
+  logseq.beforeunload(async () => {
+    offTheme()
+    offSettings()
   })
 
   provideStyles()

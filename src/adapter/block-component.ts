@@ -33,9 +33,11 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
       // If absent, onEdit stays undefined and the toolbar hides the Edit button.
       const uuid = getBlockUuid(el)
 
+      let cancelled = false
       let dispose: (() => void) | undefined
       // Lazy chunk: viewer (+ its imports) loads on first diagram encountered.
       void import('../viewer/render-into').then(({ renderInto }) => {
+        if (cancelled) return
         dispose = renderInto(el, code, {
           renderer,
           themeStore,
@@ -52,7 +54,10 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
           },
         })
       })
-      return () => dispose?.()
+      return () => {
+        cancelled = true
+        dispose?.()
+      }
     }, [props.content])
 
     return React.createElement('div', { ref, className: 'diagram-blocks-root' })

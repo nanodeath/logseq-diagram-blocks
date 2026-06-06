@@ -19,8 +19,7 @@ export const hostMermaidLoader: MermaidLoader = async (): Promise<MermaidApi> =>
     // confirmed by ERR_FILE_NOT_FOUND in spike when file only existed at dist/vendors/.
     await logseq.Experiments.loadScripts('./vendors/mermaid.min.js')
     // loadScripts resolves even on 404 — poll for actual host.mermaid presence.
-    await waitFor(() => host.mermaid as MermaidApi | undefined, 'host.mermaid')
+    return await waitFor(() => host.mermaid as MermaidApi | undefined, 'host.mermaid')
   }
-  if (!host.mermaid) throw new Error('mermaid failed to load into host scope')
   return host.mermaid as MermaidApi
 }
