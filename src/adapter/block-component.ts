@@ -10,16 +10,6 @@ export interface FencedCodeProps {
   content?: string
 }
 
-/**
- * Walk up the host DOM from a mounted element to find the nearest ancestor
- * carrying a `blockid` attribute. Relies on undocumented Logseq DOM structure
- * (observed in 0.10.15); may break on future Logseq versions.
- */
-function getBlockUuid(el: HTMLElement): string | undefined {
-  const ancestor = el.closest('[blockid]')
-  return ancestor?.getAttribute('blockid') ?? undefined
-}
-
 export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => number) {
   return function DiagramBlock(props: FencedCodeProps) {
     const ref = React.useRef<HTMLDivElement>(null)
@@ -28,10 +18,6 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
       const el = ref.current
       const code = props.content ?? ''
       if (!el || !code.trim()) return
-
-      // Recover block uuid from host DOM (undocumented Logseq attribute).
-      // If absent, onEdit stays undefined and the toolbar hides the Edit button.
-      const uuid = getBlockUuid(el)
 
       let cancelled = false
       let dispose: (() => void) | undefined
@@ -42,7 +28,8 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
           renderer,
           themeStore,
           pngScale: getPngScale(),
-          onEdit: uuid ? () => void logseq.Editor.editBlock(uuid) : undefined,
+          // No onEdit: Logseq's native fenced-code controls already cover
+          // editing, so the viewer's Edit buttons stay hidden.
           onCopyDone: (outcome) => {
             const msg =
               outcome === 'png'
