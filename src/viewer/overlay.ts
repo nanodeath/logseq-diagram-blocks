@@ -4,6 +4,8 @@ import panzoom from 'panzoom'
 export function openOverlay(svgText: string): () => void {
   const backdrop = document.createElement('div')
   backdrop.className = 'diagram-blocks-overlay'
+  backdrop.setAttribute('role', 'dialog')
+  backdrop.setAttribute('aria-modal', 'true')
 
   const stage = document.createElement('div')
   stage.className = 'diagram-blocks-overlay-stage'
@@ -22,10 +24,14 @@ export function openOverlay(svgText: string): () => void {
 
   backdrop.append(stage, closeBtn)
   document.body.append(backdrop)
+  closeBtn.focus()
 
   const pz = panzoom(stage, { maxZoom: 10, minZoom: 0.1 })
 
+  let closed = false
   const close = () => {
+    if (closed) return
+    closed = true
     pz.dispose()
     backdrop.remove()
     document.removeEventListener('keydown', onKey)
