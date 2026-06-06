@@ -18,7 +18,7 @@ Supported Mermaid diagram types include flowcharts, sequence diagrams, class dia
 **Load unpacked (now):**
 
 1. Download the latest release `.zip` from the [Releases](../../releases) page and unzip it, **or** clone this repo and run `pnpm install && pnpm build`.
-2. In Logseq, open **Settings → Plugins → Load unpacked plugin** and select the `dist/` folder (release zip) or the repo root (dev build).
+2. In Logseq, open **Settings → Plugins → Load unpacked plugin** and select the extracted folder (release zip) or the repo root (dev build).
 3. Reload Logseq. Mermaid blocks will render automatically.
 
 ## Usage
@@ -50,7 +50,7 @@ In the fullscreen overlay, drag to pan and scroll/pinch to zoom. Press **Escape*
 | `theme` | enum | `auto` | Mermaid diagram theme. `auto` follows Logseq's light/dark mode; other choices: `default`, `dark`, `forest`, `neutral`, `base`. |
 | `pngScale` | number | `2` | Resolution multiplier used when copying a diagram as PNG. `2` produces a 2× (retina) image. |
 
-Settings take effect on the next render (theme change or block content edit). There is no need to reload Logseq.
+Theme changes apply to all visible diagrams immediately; `pngScale` applies on the next render. There is no need to reload Logseq.
 
 ## Limitations
 
