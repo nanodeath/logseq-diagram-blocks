@@ -96,33 +96,31 @@ try {
   await page.keyboard.press('Escape')
   await page.locator('.diagram-blocks-overlay').waitFor({ state: 'hidden' })
 
-  // Copy-as-PNG golden: run the real toPng pipeline (clipboard excluded) on the
-  // sequence svg. Catches "renders inline but drops content in copied PNGs"
-  // regressions — SVG-as-image loads no external resources.
-  // Note: uses `sequence` (not `flowchart`) because mermaid's flowchart SVG
-  // contains <foreignObject>, which Chrome taints the canvas on even with a
-  // blob-URL src; sequence diagrams are foreignObject-free and exercise the
-  // same toPng path.
-  const pngBase64 = await page.evaluate(
-    async ({ scale }) => {
-      const { browserStrategies } = await import('/src/viewer/copy-png.ts')
-      const section = [...document.querySelectorAll('#gallery section.fixture')].find(
-        (s) => s.querySelector('h3')?.textContent?.trim() === 'sequence',
-      )
-      const svg = section?.querySelector('.diagram-blocks-figure svg')
-      if (!svg) throw new Error('sequence svg not found')
-      const blob = await browserStrategies.toPng(svg.outerHTML, scale)
-      const bytes = new Uint8Array(await blob.arrayBuffer())
-      let bin = ''
-      for (let i = 0; i < bytes.length; i += 0x8000) {
-        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-      }
-      return btoa(bin)
-    },
-    { scale: PNG_SCALE },
-  )
-  {
-    const path = join(OUT, 'copy-sequence.png')
+  // Copy-as-PNG goldens: run the real toPng pipeline (clipboard excluded).
+  // Catches "renders inline but drops content in copied PNGs" regressions.
+  // `sequence` pins the foreignObject-free path; `flowchart` pins the
+  // htmlLabels/<foreignObject> path, which taints the canvas if toPng ever
+  // regresses to a blob: URL image src (issue #2).
+  for (const fixtureName of ['sequence', 'flowchart']) {
+    const pngBase64 = await page.evaluate(
+      async ({ scale, fixtureName }) => {
+        const { browserStrategies } = await import('/src/viewer/copy-png.ts')
+        const section = [...document.querySelectorAll('#gallery section.fixture')].find(
+          (s) => s.querySelector('h3')?.textContent?.trim() === fixtureName,
+        )
+        const svg = section?.querySelector('.diagram-blocks-figure svg')
+        if (!svg) throw new Error(`${fixtureName} svg not found`)
+        const blob = await browserStrategies.toPng(svg.outerHTML, scale)
+        const bytes = new Uint8Array(await blob.arrayBuffer())
+        let bin = ''
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+        }
+        return btoa(bin)
+      },
+      { scale: PNG_SCALE, fixtureName },
+    )
+    const path = join(OUT, `copy-${fixtureName}.png`)
     writeFileSync(path, Buffer.from(pngBase64, 'base64'))
     written.push(path)
   }
@@ -132,7 +130,7 @@ try {
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
-const expected = sectionCount * 2 + 2 // fixtures × {light,dark} + overlay + copy
+const expected = sectionCount * 2 + 3 // fixtures × {light,dark} + overlay + 2 copy goldens
 if (written.length !== expected) {
   problems.push(`expected ${expected} screenshots, wrote ${written.length}`)
 }
