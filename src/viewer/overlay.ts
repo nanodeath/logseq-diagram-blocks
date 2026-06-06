@@ -147,6 +147,9 @@ export function openOverlay(svgText: string, doc: Document = document): () => vo
     // Don't pan when clicking the close button
     if (e.target === closeBtn) return
 
+    // Suppress native drag behaviors (text selection across SVG labels)
+    e.preventDefault()
+
     downX = e.clientX
     downY = e.clientY
     isPanning = true

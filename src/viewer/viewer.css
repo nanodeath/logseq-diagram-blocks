@@ -18,6 +18,7 @@
 .diagram-blocks-overlay {
   position: fixed; inset: 0; z-index: 9999; /* must sit above Logseq's own UI (~1000) */ overflow: hidden;
   background: var(--ls-primary-background-color, #1c1c1ce6);
+  user-select: none; /* drags pan the diagram; don't also select label text */
 }
 .diagram-blocks-overlay-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 .diagram-blocks-overlay { cursor: grab; }
