@@ -30,12 +30,12 @@ describe('MermaidRenderer', () => {
     )
   })
 
-  it('disables html labels so host-page CSS cannot restyle diagram text', async () => {
+  it('keeps default html labels (svg-text labels overflow their nodes)', async () => {
     const api = fakeMermaid()
     const r = new MermaidRenderer(async () => api)
     await r.render('graph TD; A-->B', { theme: 'default' })
-    expect(api.initialize).toHaveBeenCalledWith(
-      expect.objectContaining({ htmlLabels: false, flowchart: { htmlLabels: false } }),
+    expect(api.initialize).not.toHaveBeenCalledWith(
+      expect.objectContaining({ htmlLabels: false }),
     )
   })
 

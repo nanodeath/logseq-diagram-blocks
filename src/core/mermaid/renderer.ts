@@ -25,17 +25,11 @@ export class MermaidRenderer implements DiagramRenderer {
       const api = await this.apiPromise
       // mermaid's initialize is global state in the host page; setting it per
       // render keeps theme switches correct without a separate config channel.
-      // htmlLabels: false renders labels as SVG <text> instead of
-      // <foreignObject> HTML — immune to host-page CSS (Logseq's `p { color }`
-      // rules override inherited label colors) and never taints the canvas
-      // during copy-PNG.
-      api.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
-        theme: opts.theme,
-        htmlLabels: false,
-        flowchart: { htmlLabels: false },
-      })
+      // NOTE: htmlLabels stays at its default (true). Disabling it dodges
+      // host-CSS label restyling but mermaid then mis-measures SVG <text>
+      // labels (text overflows nodes); the viewer.css foreignObject backstop
+      // handles the restyling instead.
+      api.initialize({ startOnLoad: false, securityLevel: 'strict', theme: opts.theme })
       const { svg } = await api.render(`diagram-blocks-${++this.seq}`, code)
       return { ok: true, svg }
     } catch (e) {
