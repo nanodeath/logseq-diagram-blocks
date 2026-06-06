@@ -7,7 +7,8 @@
     "dev": "vite dev",
     "dev:harness": "vite dev --open /dev/index.html",
     "build": "vite build && node scripts/copy-vendors.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "screenshot": "node scripts/screenshot.mjs"
   },
   "logseq": {
     "id": "logseq-diagram-blocks",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.8"

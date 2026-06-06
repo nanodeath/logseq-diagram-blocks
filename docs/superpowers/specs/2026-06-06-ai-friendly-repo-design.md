@@ -31,7 +31,7 @@ Behavior:
 - Runs fully headless (Playwright default) — works on displayless hosts. No real clipboard use anywhere in the script.
 - For each fixture in `dev/fixtures.ts` × {light, dark}: hover the figure (toolbar becomes visible), element-screenshot it → `docs/screenshots/<fixture>-<theme>.png`. The `broken` fixture documents the error card. (~12 PNGs.)
 - One fullscreen-overlay capture: open ⛶ on the flowchart fixture in dark mode, viewport screenshot → `docs/screenshots/overlay-dark.png`.
-- One SVG→PNG export golden: run the `toPng` pipeline (the copy-as-PNG path, bypassing the clipboard) on the flowchart fixture, write the bytes → `docs/screenshots/copy-flowchart.png`. This catches "renders inline but drops content in copied PNGs" regressions (external resources never load inside SVG-as-image).
+- One SVG→PNG export golden: run the `toPng` pipeline (the copy-as-PNG path, bypassing the clipboard) on the **sequence** fixture, write the bytes → `docs/screenshots/copy-sequence.png`. This catches "renders inline but drops content in copied PNGs" regressions (external resources never load inside SVG-as-image). *(Amended during implementation: originally specified the flowchart fixture, but mermaid flowchart SVGs contain `<foreignObject>`, which taints the canvas in Chromium — `SecurityError` at `toBlob`. Verified independently. Product implication: in the real plugin, copy-as-PNG on htmlLabels diagrams falls back to SVG-text copy; tracked separately.)*
 - Exits non-zero on: unexpected console errors, a fixture that fails to render (except `broken`, which must show the error card), or zero-byte output.
 
 Goldens are **committed**. A PR that changes rendered output regenerates them; GitHub's Files Changed shows before/after image diffs. Conventions:
