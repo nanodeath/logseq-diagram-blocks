@@ -2,8 +2,11 @@
 
 A [Logseq](https://logseq.com/) plugin that renders **Mermaid** fenced code blocks as interactive diagrams — theme-synced, fullscreen pan/zoom, and copy-as-PNG.
 
-<!-- Screenshot placeholder — replace with a real capture before marketplace submission -->
-<!-- ![Screenshot of a Mermaid flowchart rendered in Logseq](docs/screenshot.png) -->
+| Light mode | Dark mode |
+| --- | --- |
+| ![Mermaid flowchart rendered with the light theme, toolbar visible](docs/screenshots/flowchart-light.png) | ![Mermaid flowchart rendered with the dark theme, toolbar visible](docs/screenshots/flowchart-dark.png) |
+
+*The same block, automatically restyled when Logseq's theme changes. The toolbar (top left) opens the fullscreen pan/zoom overlay or copies the diagram as a PNG.*
 
 ## What it does
 
