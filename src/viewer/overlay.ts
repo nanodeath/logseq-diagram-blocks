@@ -40,8 +40,17 @@ export function openOverlay(svgText: string): () => void {
     if (e.key === 'Escape') close()
   }
   closeBtn.addEventListener('click', close)
+  // The stage fills the backdrop, so a bare target===backdrop check never fires;
+  // close on a true click (not a pan release) on empty space (stage/backdrop).
+  let downX = 0
+  let downY = 0
+  backdrop.addEventListener('pointerdown', (e) => {
+    downX = e.clientX
+    downY = e.clientY
+  })
   backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) close()
+    const moved = Math.hypot(e.clientX - downX, e.clientY - downY) > 5
+    if (!moved && (e.target === backdrop || e.target === stage)) close()
   })
   document.addEventListener('keydown', onKey)
   return close
