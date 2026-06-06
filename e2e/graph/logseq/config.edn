@@ -1,0 +1,6 @@
+{:meta/version 1
+ ;; e2e scratch graph for `pnpm screenshot:logseq` — see docs/cdp-spike-findings.md.
+ ;; Committed files: this config + pages/fixtures.md. Everything else Logseq
+ ;; writes here is gitignored.
+ :default-templates {:journals ""}
+ :journal/page-title-format "yyyy-MM-dd"}

@@ -38,10 +38,12 @@ Goldens are **committed**. A PR that changes rendered output regenerates them; G
 - Goldens are human-reviewed evidence, not CI-compared baselines.
 - Font drift: goldens regenerated on a different machine will diff at the pixel level even with no code change. Rule: **never regenerate goldens in a PR that doesn't intentionally change rendered output.**
 
-## Component 2: `pnpm screenshot:logseq` — real-Logseq capture (tier B, spike-gated)
+## Component 2: `pnpm screenshot:logseq` — real-Logseq capture (tier B)
+
+**Built** (see `docs/superpowers/plans/2026-06-06-tier-b-screenshot-logseq.md`); spike checklist below retained for the record.
 
 Captures the plugin running in actual Logseq via Chrome DevTools Protocol:
-- Launch (or attach to) Flatpak Logseq with `--remote-debugging-port=<port>`; on displayless hosts, `xvfb-run flatpak run com.logseq.Logseq --remote-debugging-port=<port> --disable-gpu` (Electron cannot run truly headless; Xvfb suffices — CDP capture never needs a visible window).
+- Launch (or attach to) Flatpak Logseq with `--remote-debugging-port=<port>`; on displayless hosts, a manually started `Xvfb` + `--ozone-platform=x11` Electron flag (Electron cannot run truly headless; Xvfb suffices — CDP capture never needs a visible window). *(Corrected from the original `xvfb-run` wording: the spike proved `xvfb-run` fails — see `docs/cdp-spike-findings.md` Step 5.)*
 - Connect via Playwright `connectOverCDP`.
 - Open a dedicated page in a scratch graph containing the same fixture blocks as the harness.
 - Reload the plugin, wait for renders, element-screenshot each block → `docs/screenshots/logseq/<fixture>.png` (committed, same review channel as tier A).
@@ -53,7 +55,7 @@ Captures the plugin running in actual Logseq via Chrome DevTools Protocol:
 2. Playwright can `connectOverCDP` and reach the main window's page.
 3. A scratch graph with fixture pages can be set up once and reused. Preferred location: repo-local `e2e/graph/` (committed, versioned with the fixtures); the spike decides whether Logseq tolerates a graph inside the plugin's own directory, falling back to `~/.local/share/logseq-diagram-blocks-e2e-graph/` seeded from repo files.
 4. Plugin reload before capture is scriptable (CDP-evaluated `logseq` API call, or full app restart as fallback).
-5. All of the above also works under `xvfb-run` on a displayless host (target: mini-max-class Ubuntu box).
+5. All of the above also works on a displayless host (target: mini-max-class Ubuntu box). *(Outcome: yes, but via manual `Xvfb` — `xvfb-run` itself fails; spike Step 5.)*
 
 If the spike fails or proves too flaky, tier B's contract falls back to: the PR explicitly states real-Logseq verification was not performed and requests Max's manual check (see PR contract).
 

@@ -8,7 +8,8 @@
     "dev:harness": "vite dev --open /dev/index.html",
     "build": "vite build && node scripts/copy-vendors.mjs",
     "test": "vitest run",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "screenshot:logseq": "node scripts/screenshot-logseq.mjs"
   },
   "logseq": {
     "id": "logseq-diagram-blocks",
