@@ -73,6 +73,25 @@ describe('MermaidRenderer', () => {
     expect(loader).toHaveBeenCalledTimes(2)
   })
 
+  it('registers Font Awesome icon packs exactly once across renders', async () => {
+    const api = fakeMermaid({ registerIconPacks: vi.fn() })
+    const r = new MermaidRenderer(async () => api)
+    await r.render('graph TD; A-->B', { theme: 'default' })
+    await r.render('graph TD; B-->C', { theme: 'default' })
+    expect(api.registerIconPacks).toHaveBeenCalledTimes(1)
+    const packs = (api.registerIconPacks as ReturnType<typeof vi.fn>).mock.calls[0]![0]
+    expect(packs.map((p: { name: string }) => p.name)).toEqual(
+      expect.arrayContaining(['fa', 'fas', 'far', 'fab']),
+    )
+  })
+
+  it('still renders when the mermaid api lacks registerIconPacks', async () => {
+    const api = fakeMermaid() // no registerIconPacks — e.g. an older vendored bundle
+    const r = new MermaidRenderer(async () => api)
+    const result = await r.render('graph TD; A-->B', { theme: 'default' })
+    expect(result.ok).toBe(true)
+  })
+
   it('generates unique element ids per render', async () => {
     const api = fakeMermaid()
     const r = new MermaidRenderer(async () => api)
