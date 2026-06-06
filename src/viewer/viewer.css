@@ -22,14 +22,13 @@
   display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
 }
 .diagram-blocks-error pre { white-space: pre-wrap; margin: 0; font-size: 12px; }
+/* cursor is managed inline by overlay.ts (grab/grabbing) */
 .diagram-blocks-overlay {
   position: fixed; inset: 0; z-index: 9999; /* must sit above Logseq's own UI (~1000) */ overflow: hidden;
   background: var(--ls-primary-background-color, #1c1c1ce6);
   user-select: none; /* drags pan the diagram; don't also select label text */
 }
 .diagram-blocks-overlay-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
-.diagram-blocks-overlay { cursor: grab; }
-.diagram-blocks-overlay.is-dragging { cursor: grabbing; }
 .diagram-blocks-overlay-close {
   position: fixed; top: 16px; right: 16px; font-size: 18px;
   padding: 6px 12px; border-radius: 6px; cursor: pointer;

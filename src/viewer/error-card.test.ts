@@ -20,4 +20,14 @@ describe('buildErrorCard', () => {
     expect(el.querySelector('img')).toBeNull()
     expect(el.textContent).toContain('<img src=x onerror=alert(1)>')
   })
+
+  it('elements are owned by the supplied foreign document', () => {
+    const foreignDoc = document.implementation.createHTMLDocument('foreign')
+    const el = buildErrorCard({ message: 'oops' }, undefined, foreignDoc)
+    expect(el.ownerDocument).toBe(foreignDoc)
+    // all child nodes must belong to the same document
+    el.querySelectorAll('*').forEach((child) => {
+      expect(child.ownerDocument).toBe(foreignDoc)
+    })
+  })
 })

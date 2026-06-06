@@ -23,5 +23,5 @@ for (const [name, code] of Object.entries(fixtures)) {
   const target = document.createElement('div')
   section.append(h, target)
   gallery.append(section)
-  renderInto(target, code, { renderer, themeStore: store, pngScale: 2 })
+  renderInto(target, code, { renderer, themeStore: store, getPngScale: () => 2 })
 }

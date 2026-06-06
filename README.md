@@ -50,7 +50,7 @@ In the fullscreen overlay, drag to pan and scroll/pinch to zoom. Press **Escape*
 | `theme` | enum | `auto` | Mermaid diagram theme. `auto` follows Logseq's light/dark mode; other choices: `default`, `dark`, `forest`, `neutral`, `base`. |
 | `pngScale` | number | `2` | Resolution multiplier used when copying a diagram as PNG. `2` produces a 2× (retina) image. |
 
-Theme changes apply to all visible diagrams immediately; `pngScale` applies on the next render. There is no need to reload Logseq.
+Theme changes apply to all visible diagrams immediately; `pngScale` applies to the next copy. There is no need to reload Logseq.
 
 ## Limitations
 

@@ -8,7 +8,8 @@ import { openOverlay } from './overlay'
 export interface ViewerContext {
   renderer: DiagramRenderer
   themeStore: ThemeStore
-  pngScale: number
+  /** Returns the current scale multiplier at copy time so settings changes apply to the next copy. */
+  getPngScale: () => number
   onEdit?: () => void
   /** Called after a copy attempt completes; used by the adapter to show a toast. */
   onCopyDone?: (outcome: CopyOutcome) => void
@@ -36,13 +37,13 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
     container.replaceChildren()
 
     if (!result.ok) {
-      container.append(buildErrorCard(result.error, ctx.onEdit))
+      container.append(buildErrorCard(result.error, ctx.onEdit, hostDoc))
       return
     }
 
     const bg = themeBackground(ctx.themeStore.theme, ctx.themeStore.mode)
 
-    const figure = document.createElement('div')
+    const figure = hostDoc.createElement('div')
     figure.className = 'diagram-blocks-figure'
     figure.innerHTML = result.svg
     const svgEl = figure.querySelector<HTMLElement>('svg')
@@ -59,8 +60,9 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
     }
     const toolbar = buildToolbar({
       onFullscreen: () => openOverlay(result.svg, hostDoc, bg),
-      onCopy: () => void copyDiagram(result.svg, ctx.pngScale, copyStrategies).then(ctx.onCopyDone),
+      onCopy: () => void copyDiagram(result.svg, ctx.getPngScale(), copyStrategies).then(ctx.onCopyDone),
       onEdit: ctx.onEdit,
+      doc: hostDoc,
     })
     figure.append(toolbar)
     container.append(figure)

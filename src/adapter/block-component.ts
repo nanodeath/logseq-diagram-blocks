@@ -27,7 +27,7 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
         dispose = renderInto(el, code, {
           renderer,
           themeStore,
-          pngScale: getPngScale(),
+          getPngScale,
           // No onEdit: Logseq's native fenced-code controls already cover
           // editing, so the viewer's Edit buttons stay hidden.
           onCopyDone: (outcome) => {
@@ -47,6 +47,7 @@ export function makeBlockComponent(themeStore: ThemeStore, getPngScale: () => nu
       }
     }, [props.content])
 
+    // diagram-blocks-root: debugging / host hook — no visual rules; just a stable selector.
     return React.createElement('div', { ref, className: 'diagram-blocks-root' })
   }
 }

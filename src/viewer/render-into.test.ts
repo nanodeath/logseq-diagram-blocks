@@ -45,7 +45,7 @@ describe('renderInto', () => {
     renderInto(el, 'graph TD; A-->B', {
       renderer: okRenderer,
       themeStore: new ThemeStore('auto', 'dark'),
-      pngScale: 2,
+      getPngScale: () => 2,
     })
     await tick()
     expect(el.querySelector('svg')).not.toBeNull()
@@ -55,7 +55,7 @@ describe('renderInto', () => {
   it('re-renders when the theme changes', async () => {
     const el = document.createElement('div')
     const store = new ThemeStore('auto', 'light')
-    renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, pngScale: 2 })
+    renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, getPngScale: () => 2 })
     await tick()
     store.setMode('dark')
     await tick()
@@ -69,7 +69,7 @@ describe('renderInto', () => {
     }
     const el = document.createElement('div')
     const store = new ThemeStore('auto', 'light')
-    const dispose = renderInto(el, 'x', { renderer: failing, themeStore: store, pngScale: 2 })
+    const dispose = renderInto(el, 'x', { renderer: failing, themeStore: store, getPngScale: () => 2 })
     await tick()
     expect(el.querySelector('.diagram-blocks-error')!.textContent).toContain('bad syntax')
     dispose()
@@ -80,7 +80,7 @@ describe('renderInto', () => {
     const { renderer, resolve } = deferredRenderer()
     const el = document.createElement('div')
     const store = new ThemeStore('auto', 'light')
-    renderInto(el, 'graph TD; A-->B', { renderer, themeStore: store, pngScale: 2 })
+    renderInto(el, 'graph TD; A-->B', { renderer, themeStore: store, getPngScale: () => 2 })
     // render #0 is in flight; trigger a second render via theme change
     store.setMode('dark')
     // render #1 is now also in flight; resolve the SECOND render first
@@ -97,7 +97,7 @@ describe('renderInto', () => {
     const { renderer, resolve } = deferredRenderer()
     const el = document.createElement('div')
     const store = new ThemeStore('auto', 'light')
-    const dispose = renderInto(el, 'graph TD; A-->B', { renderer, themeStore: store, pngScale: 2 })
+    const dispose = renderInto(el, 'graph TD; A-->B', { renderer, themeStore: store, getPngScale: () => 2 })
     // dispose before any render completes
     dispose()
     // now resolve the pending render
@@ -112,7 +112,7 @@ describe('renderInto', () => {
     renderInto(el, 'graph TD; A-->B', {
       renderer: okRenderer,
       themeStore: new ThemeStore('forest', 'dark'),
-      pngScale: 2,
+      getPngScale: () => 2,
     })
     await tick()
     const svg = el.querySelector<HTMLElement>('svg')
@@ -127,7 +127,7 @@ describe('renderInto', () => {
     renderInto(el, 'graph TD; A-->B', {
       renderer: okRenderer,
       themeStore: new ThemeStore('auto', 'light'),
-      pngScale: 2,
+      getPngScale: () => 2,
     })
     await tick()
     const svg = el.querySelector<HTMLElement>('svg')
@@ -138,7 +138,7 @@ describe('renderInto', () => {
   it('clears background when re-rendering switches from mismatched to matched theme', async () => {
     const el = document.createElement('div')
     const store = new ThemeStore('forest', 'dark') // mismatch → white bg
-    renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, pngScale: 2 })
+    renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, getPngScale: () => 2 })
     await tick()
     // jsdom normalizes hex to rgb — accept either form
     expect(el.querySelector<HTMLElement>('svg')?.style.background).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/)
@@ -159,7 +159,7 @@ describe('renderInto', () => {
     renderInto(el, 'graph TD; A-->B', {
       renderer: okRenderer,
       themeStore: new ThemeStore('forest', 'dark'),
-      pngScale: 2,
+      getPngScale: () => 2,
     })
     await tick()
 
