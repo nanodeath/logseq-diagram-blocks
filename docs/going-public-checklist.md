@@ -32,15 +32,16 @@ Scope: making the **repo** public. Marketplace submission is a separate, later g
 
 ## Immediately after flipping
 
-These are free-tier features that only unlock on public repos:
+Repo flipped public 2026-06-06; all items completed the same day:
 
-- [ ] **Secret scanning + push protection** — Settings → Code security; enable both.
-- [ ] **Branch protection on `main`** — require CI to pass, block force-pushes.
-      (403 on private/free today; available once public.)
-- [ ] **Actions approval for outside contributors** — verify Settings → Actions →
-      "Require approval for first-time contributors" (should be the default).
-- [ ] **Dependabot alerts** — enable (security updates optional; the bot loop can
-      handle bumps via `ai-ready` issues instead).
+- [x] **Secret scanning + push protection** — both enabled.
+- [x] **Branch protection on `main`** — requires `test` + `gitleaks` status checks,
+      force-pushes and deletion blocked. `enforce_admins` off so Max's direct
+      pushes still work (the bot never pushes main).
+- [x] **Actions approval for outside contributors** — verified:
+      `first_time_contributors` policy active.
+- [x] **Dependabot alerts** — enabled. Automatic security updates left off;
+      the bot loop handles bumps via `ai-ready` issues instead.
 
 ## Explicitly deferred to the marketplace gate
 
