@@ -2,7 +2,7 @@ import type { ThemeStore } from '../core/theme'
 import type { DiagramRenderer } from '../core/types'
 import { buildErrorCard } from './error-card'
 import { buildToolbar } from './toolbar'
-import { copyDiagram, type CopyOutcome } from './copy-png'
+import { browserStrategies, copyDiagram, makeBrowserStrategies, type CopyOutcome, type WindowGlobals } from './copy-png'
 import { openOverlay } from './overlay'
 
 export interface ViewerContext {
@@ -19,6 +19,16 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
   let disposed = false
   let generation = 0
 
+  // Derive realm objects from the mounted container so overlay and clipboard
+  // operations target the host page, not the plugin's hidden sandbox iframe.
+  const hostDoc = container.ownerDocument
+  // defaultView is null only for detached / non-browsing-context documents;
+  // fall back to module-scope browserStrategies (dev harness, unit tests).
+  const copyStrategies =
+    hostDoc.defaultView != null
+      ? makeBrowserStrategies(hostDoc.defaultView as unknown as WindowGlobals)
+      : browserStrategies
+
   async function draw(): Promise<void> {
     const gen = ++generation
     const result = await ctx.renderer.render(code, { theme: ctx.themeStore.theme })
@@ -34,8 +44,8 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
     figure.className = 'diagram-blocks-figure'
     figure.innerHTML = result.svg
     const toolbar = buildToolbar({
-      onFullscreen: () => openOverlay(result.svg),
-      onCopy: () => void copyDiagram(result.svg, ctx.pngScale).then(ctx.onCopyDone),
+      onFullscreen: () => openOverlay(result.svg, hostDoc),
+      onCopy: () => void copyDiagram(result.svg, ctx.pngScale, copyStrategies).then(ctx.onCopyDone),
       onEdit: ctx.onEdit,
     })
     figure.append(toolbar)
