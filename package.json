@@ -23,6 +23,7 @@
       "onFail": "download"
     }
   },
+  "packageManager": "pnpm@11.5.2",
   "type": "module",
   "dependencies": {
     "@iconify-json/fa6-brands": "^1.2.6",
