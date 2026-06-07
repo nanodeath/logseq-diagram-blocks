@@ -15,10 +15,29 @@ export interface ViewerContext {
   onCopyDone?: (outcome: CopyOutcome) => void
 }
 
+/** A red exclamation badge overlaid on a last-good diagram when a re-render fails. */
+function buildErrorBadge(error: { message: string }, doc: Document): HTMLElement {
+  const badge = doc.createElement('div')
+  badge.className = 'diagram-blocks-error-badge'
+  badge.textContent = '!'
+  badge.title = error.message
+  badge.setAttribute('aria-label', `Diagram error: ${error.message}`)
+  return badge
+}
+
+/** A spinner overlaid on a last-good diagram while a slow re-render is in flight. */
+function buildLoadingOverlay(doc: Document): HTMLElement {
+  const overlay = doc.createElement('div')
+  overlay.className = 'diagram-blocks-loading'
+  overlay.setAttribute('aria-label', 'Rendering diagram…')
+  return overlay
+}
+
 /** Render a diagram into `container`; returns a dispose function. */
 export function renderInto(container: HTMLElement, code: string, ctx: ViewerContext): () => void {
   let disposed = false
   let generation = 0
+  let spinnerTimer: ReturnType<typeof setTimeout> | undefined
 
   // Derive realm objects from the mounted container so overlay and clipboard
   // operations target the host page, not the plugin's hidden sandbox iframe.
@@ -30,13 +49,40 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
       ? makeBrowserStrategies(hostDoc.defaultView as unknown as WindowGlobals)
       : browserStrategies
 
+  /** Remove any transient spinner / error badge from the current figure. */
+  function clearTransientOverlays(): void {
+    const figure = container.querySelector('.diagram-blocks-figure')
+    if (!figure) return
+    figure.querySelectorAll('.diagram-blocks-loading, .diagram-blocks-error-badge').forEach((node) => node.remove())
+  }
+
   async function draw(): Promise<void> {
     const gen = ++generation
+    clearTimeout(spinnerTimer)
+    clearTransientOverlays()
+
+    // Keep the last-good diagram visible while rendering. If the render is slow
+    // (>500ms), overlay a spinner on the existing figure. With no figure there's
+    // nothing to overlay, so skip it (initial render shows nothing briefly).
+    spinnerTimer = setTimeout(() => {
+      const figure = container.querySelector('.diagram-blocks-figure')
+      if (figure) figure.append(buildLoadingOverlay(hostDoc))
+    }, 500)
+
     const result = await ctx.renderer.render(code, { theme: ctx.themeStore.theme })
+    clearTimeout(spinnerTimer)
     if (disposed || gen !== generation) return // stale render lost the race
-    container.replaceChildren()
+    clearTransientOverlays()
 
     if (!result.ok) {
+      // Prefer keeping the last-good diagram and flagging the error with a badge.
+      // Only fall back to the full error card when there's nothing to preserve.
+      const figure = container.querySelector('.diagram-blocks-figure')
+      if (figure) {
+        figure.append(buildErrorBadge(result.error, hostDoc))
+        return
+      }
+      container.replaceChildren()
       container.append(buildErrorCard(result.error, ctx.onEdit, hostDoc))
       return
     }
@@ -65,6 +111,7 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
       doc: hostDoc,
     })
     figure.append(toolbar)
+    container.replaceChildren()
     container.append(figure)
   }
 
@@ -74,6 +121,11 @@ export function renderInto(container: HTMLElement, code: string, ctx: ViewerCont
   return () => {
     disposed = true
     unsubscribe()
-    container.replaceChildren()
+    clearTimeout(spinnerTimer)
+    // Intentionally do NOT clear the container. While editing, React disposes the
+    // old renderInto and mounts a new one on the same node for each keystroke; the
+    // next renderInto inherits the last-good diagram and renders over it, so no
+    // flash. On an actual unmount React removes the host node itself, so leaving
+    // children here leaks nothing.
   }
 }
