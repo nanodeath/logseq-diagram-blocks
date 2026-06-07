@@ -28,11 +28,17 @@ This bug class shipped six times during initial development. Don't be seven.
 | `pnpm build` | typecheck + production build |
 | `pnpm dev:harness` | interactive dev harness (browser, no Logseq) |
 | `pnpm screenshot` | regenerate tier-A goldens in `docs/screenshots/` (headless) |
-| `pnpm screenshot:logseq` | tier-B captures from REAL Logseq into `docs/screenshots/logseq/` (needs one-time setup: see `docs/cdp-spike-findings.md`; falls back per PR-contract #3 on unprepared hosts) |
+| `pnpm screenshot:logseq` | tier-B captures from REAL Logseq into `docs/screenshots/logseq/` (self-contained — see below; falls back per PR-contract #3 on unprepared hosts) |
 
 One-time setup: `pnpm install && pnpm exec playwright install chromium`.
 
-Tier-B one-time setup (per machine): `flatpak override --user --filesystem=$PWD/e2e/graph com.logseq.Logseq`, then add `e2e/graph/` as a graph in Logseq once. Headless hosts also need Xvfb installed.
+Tier-B needs **no graph setup**. The script loads the plugin via `LSPluginCore.register`
+and injects the `e2e/graph/pages/fixtures.md` blocks into Logseq's built-in demo graph
+over CDP (Logseq exposes no dialog-free way to open a graph by path, so we don't try).
+On a desktop it drives the installed Flatpak automatically. On a **headless host** (the
+unattended bot server): install an extracted Logseq AppImage and point the script at it
+with `LOGSEQ_APPRUN=/path/to/squashfs-root/AppRun`, and install Xvfb. The AppImage is
+required headless — the Flatpak fights Xvfb/Wayland (see `docs/cdp-spike-findings.md`).
 
 ## PR contract
 

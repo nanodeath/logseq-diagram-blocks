@@ -1,25 +1,44 @@
 // Tier-B captures: screenshots of the plugin rendering inside REAL Logseq via
 // CDP. The realm-truth check — see docs/cdp-spike-findings.md and AGENTS.md
 // PR-contract §3. Headless-capable via Xvfb (NOT xvfb-run; see spike Step 5).
+//
+// This script does NOT depend on a pre-registered graph. Logseq exposes no
+// dialog-free way to register/open a local graph by path (getters only on
+// window.logseq.api; internal repo handlers aren't exported; current-repo alone
+// always resets to "local"). So instead of fighting graph registration, we work
+// entirely inside Logseq's built-in demo graph and build the fixtures from
+// scratch via the plugin API:
+//   1. Load the plugin programmatically — window.LSPluginCore.register({ url })
+//      (the same call the "Load unpacked plugin" dialog makes, minus the dialog).
+//   2. Parse the committed e2e/graph/pages/fixtures.md (single source of truth)
+//      and inject those blocks into a fresh `fixtures` page via the editor API.
+// Both steps are dialog-free, need no profile copy / sudo / path-matching, and
+// run identically on a desktop or a fresh headless server.
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, realpathSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { chromium } from 'playwright'
 
 const PORT = Number(process.env.LOGSEQ_CDP_PORT ?? 9222)
 const OUT = 'docs/screenshots/logseq'
 const PLUGIN_ID = 'logseq-diagram-blocks'
 const FIXTURES_PAGE = 'fixtures'
-// realpathSync resolves symlinks — /home/max/Projects/logseq-graph-block is a
-// symlink to /mnt/Data/Projects/logseq-graph-block on this machine; Logseq
-// stores the graph path via the symlink, so we compare realpaths to match.
-const GRAPH_DIR = realpathSync(resolve('e2e/graph'))
+const CHECKOUT = realpathSync(resolve('.'))
+const FIXTURES_MD = resolve('e2e/graph/pages/fixtures.md')
 const APP = 'com.logseq.Logseq'
+// LOGSEQ_APPRUN: path to an extracted AppImage's squashfs-root/AppRun. Set on
+// headless hosts (the unattended bot host) — the AppImage is the only Logseq
+// that runs reliably headless; the Flatpak fights Xvfb/Wayland (spike Step 5).
+// When unset, we fall back to the Flatpak (desktop dev).
+const APPRUN = process.env.LOGSEQ_APPRUN
+const XVFB_DISPLAY = process.env.LOGSEQ_XVFB_DISPLAY ?? ':93'
 const STARTUP_MS = 45_000 // spike observed ~18 s; practice shows occasional slower cold launches
 const RENDER_TIMEOUT_MS = 30_000
 
 const problems = []
 let launched = null // { proc, xvfb } when we started Logseq ourselves
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // ── Branch-truth guard: the plugin loads dist/ from this checkout ───────────
 execFileSync('pnpm', ['build'], { stdio: 'inherit' })
@@ -33,43 +52,71 @@ if (dirty > 0 && !process.env.LOGSEQ_SCREENSHOT_ALLOW_DIRTY) {
   process.exit(1)
 }
 
+// ── Parse the committed fixtures.md into { label, content } per diagram ──────
+// fixtures.md is a Logseq outline: each top-level bullet is `- **label**` and
+// its single child bullet holds a ```mermaid fence. We dedent one Logseq level
+// (a leading tab, then either the `- ` bullet marker or the 2-space content
+// alignment) to recover the verbatim fence as the child block's content.
+function parseFixtures(md) {
+  const out = []
+  let cur = null
+  const flush = () => { if (cur) out.push({ label: cur.label, content: cur.lines.join('\n').trim() }) }
+  for (const line of md.split('\n')) {
+    const m = line.match(/^- \*\*(.+?)\*\*\s*$/)
+    if (m) { flush(); cur = { label: m[1], lines: [] }; continue }
+    if (!cur) continue
+    let l = line.startsWith('\t') ? line.slice(1) : line
+    l = l.startsWith('- ') ? l.slice(2) : l.replace(/^ {2}/, '')
+    cur.lines.push(l)
+  }
+  flush()
+  return out.filter((f) => f.content.length > 0)
+}
+
 async function cdpAlive() {
   try { return (await fetch(`http://localhost:${PORT}/json/version`)).ok } catch { return false }
 }
 
 async function ensureLogseq() {
   if (await cdpAlive()) return // attach mode: a CDP-enabled Logseq is already up
-  const headed = !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY)
+  const hasDisplay = !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY)
   let xvfb = null
-  let args
-  let spawnEnv = null // null = inherit parent env (headed mode); set in headless path
-  if (headed) {
-    args = ['run', APP, `--remote-debugging-port=${PORT}`]
+  let proc
+
+  if (APPRUN) {
+    // Extracted-AppImage launch (headless servers). Spin up our own Xvfb when no
+    // display is present. APPDIR must point at squashfs-root so AppRun locates
+    // the bundled Logseq binary. detached:true gives us a process group to kill
+    // (Electron spawns helper children that a plain proc.kill() would orphan).
+    let display = process.env.DISPLAY
+    if (!hasDisplay) {
+      display = XVFB_DISPLAY
+      xvfb = spawn('Xvfb', [display, '-ac', '-screen', '0', '1920x1080x24'], { stdio: 'ignore' })
+      await sleep(2000)
+    }
+    const env = { ...process.env, DISPLAY: display, APPDIR: dirname(realpathSync(APPRUN)) }
+    proc = spawn(APPRUN, ['--no-sandbox', '--disable-gpu', `--remote-debugging-port=${PORT}`],
+      { stdio: 'ignore', detached: true, env })
+  } else if (hasDisplay) {
+    proc = spawn('flatpak', ['run', APP, `--remote-debugging-port=${PORT}`], { stdio: 'ignore' })
   } else {
-    // Spike Step 5: manual Xvfb + force X11 via Electron flag (xvfb-run fails).
-    // xvfb-run fails because Logseq Flatpak declares sockets=wayland; even with
-    // --nosocket=wayland and WAYLAND_DISPLAY="", Electron's Ozone detection
-    // tries Wayland from the sandbox env. --ozone-platform=x11 as a direct
-    // Electron CLI flag forces X11 before any detection logic runs.
-    const display = ':93' // arbitrary high display; if it collides, picking a free one dynamically is the fix
+    // Headless Flatpak fallback (spike Step 5): manual Xvfb + force X11 via the
+    // Electron flag. Flatpak declares sockets=wayland, so we must blank
+    // WAYLAND_DISPLAY and force --ozone-platform=x11 before Ozone detection runs.
+    const display = XVFB_DISPLAY
     xvfb = spawn('Xvfb', [display, '-screen', '0', '1920x1080x24'], { stdio: 'ignore' })
-    // Wait briefly for Xvfb to be ready before flatpak tries to connect to X11.
-    await new Promise((r) => setTimeout(r, 1500))
-    args = ['run', '--nosocket=wayland', `--env=DISPLAY=${display}`, '--env=WAYLAND_DISPLAY=',
+    await sleep(1500)
+    const args = ['run', '--nosocket=wayland', `--env=DISPLAY=${display}`, '--env=WAYLAND_DISPLAY=',
       '--env=ELECTRON_OZONE_PLATFORM_HINT=x11', APP, `--remote-debugging-port=${PORT}`,
       '--disable-gpu', '--ozone-platform=x11']
-    // Also set DISPLAY in the Node spawn env so flatpak's own process (which
-    // inspects the outer environment for the X server connection) can find it.
-    // Without this, flatpak reports "No colon found in DISPLAY=" because the
-    // outer env has DISPLAY="" (blank, not just unset), confusing libglib.
-    spawnEnv = { ...process.env, DISPLAY: display, WAYLAND_DISPLAY: '' }
+    proc = spawn('flatpak', args, { stdio: 'ignore', env: { ...process.env, DISPLAY: display, WAYLAND_DISPLAY: '' } })
   }
-  const proc = spawn('flatpak', args, { stdio: 'ignore', ...(spawnEnv ? { env: spawnEnv } : {}) })
+
   launched = { proc, xvfb }
   const deadline = Date.now() + STARTUP_MS
   while (Date.now() < deadline) {
     if (await cdpAlive()) return
-    await new Promise((r) => setTimeout(r, 500))
+    await sleep(500)
   }
   throw new Error(`Logseq CDP not reachable on :${PORT} after ${STARTUP_MS}ms.
 If your normal Logseq is open (without the CDP flag), close it and re-run.`)
@@ -78,15 +125,24 @@ If your normal Logseq is open (without the CDP flag), close it and re-run.`)
 async function cleanup(browser) {
   await browser?.close().catch(() => {})
   if (launched) {
-    // execFileSync throws on non-zero exit (e.g. if Logseq already exited);
-    // catch it so we always reach the xvfb kill.
-    try { execFileSync('flatpak', ['kill', APP], { stdio: 'ignore' }) } catch { /* already gone */ }
+    if (APPRUN) {
+      // Kill the whole process group (Electron helpers included).
+      try { process.kill(-launched.proc.pid, 'SIGTERM') } catch { /* already gone */ }
+    } else {
+      // execFileSync throws on non-zero exit (e.g. if Logseq already exited);
+      // catch it so we always reach the xvfb kill.
+      try { execFileSync('flatpak', ['kill', APP], { stdio: 'ignore' }) } catch { /* already gone */ }
+    }
     launched.xvfb?.kill()
   }
 }
 
 let browser
 try {
+  const fixtures = parseFixtures(readFileSync(FIXTURES_MD, 'utf8'))
+  if (fixtures.length === 0) throw new Error(`parsed 0 fixtures from ${FIXTURES_MD}`)
+  console.log(`parsed ${fixtures.length} fixtures: ${fixtures.map((f) => f.label).join(', ')}`)
+
   await ensureLogseq()
   browser = await chromium.connectOverCDP(`http://localhost:${PORT}`)
   const page = browser.contexts().flatMap((c) => c.pages())
@@ -98,59 +154,83 @@ try {
   // app bootstraps, which can take several seconds after the CDP endpoint
   // becomes available (especially in headless/launch mode).
   await page.waitForFunction(() => !!window.logseq?.api, { timeout: RENDER_TIMEOUT_MS })
-
-  // Wait for the graph to finish loading. After startup, Logseq indexes the
-  // graph asynchronously; push_state before the router is ready throws
-  // "No protocol method Router.match-by-name". Wait for both:
-  //   1. get_current_graph() returns a path (graph DB loaded)
-  //   2. The main content area has rendered some DOM (router initialized)
+  // The main content container is present once the SPA router is ready; push_state
+  // before that throws "No protocol method Router.match-by-name".
   await page.waitForFunction(
-    () => {
-      try {
-        if (!window.logseq.api.get_current_graph()?.path) return false
-        // The main content container is present when the SPA router is ready
-        return document.querySelectorAll('#main-content-container, .cp__sidebar-main-layout').length > 0
-      } catch { return false }
-    },
+    () => document.querySelectorAll('#main-content-container, .cp__sidebar-main-layout').length > 0,
     { timeout: RENDER_TIMEOUT_MS },
   )
 
-  // ── Ensure the e2e graph is open ──────────────────────────────────────────
-  const graph = await page.evaluate(() => window.logseq.api.get_current_graph())
-  // Resolve symlinks in the reported graph path before comparing: Logseq may
-  // store the path via a symlink (e.g. /home/max/Projects → /mnt/Data/Projects).
-  const graphRealPath = graph?.path ? realpathSync(graph.path) : null
-  if (!graphRealPath || graphRealPath !== GRAPH_DIR) {
-    // PROBE(a) findings (2026-06-06): probed Object.keys(window.logseq.api)
-    // .filter(k => /graph|repo/i.test(k)) — result: get_current_graph,
-    // get_current_graph_configs, get_current_graph_favorites,
-    // get_current_graph_recent, get_current_graph_templates, force_save_graph,
-    // download_graph_db, download_graph_pages. No add_graph, open_graph, or
-    // switch_graph method exists. push_state('graph', { name }) navigates to
-    // the graph page in the sidebar but does NOT switch the active graph —
-    // get_current_graph() still returns the old graph after calling it.
-    // The UI graph picker (clicking the graph name in the sidebar) triggers a
-    // full app reload that disconnects CDP, making automation impractical.
-    // Verdict: no working programmatic graph switch. The happy path relies on
-    // Logseq reopening the last-opened graph on startup (which is the e2e
-    // graph since Max just did the one-time setup). This error guards against
-    // a wrong graph being open and asks for manual intervention.
-    throw new Error(`e2e graph not open (current real path: ${graphRealPath ?? graph?.path ?? 'none'}; expected: ${GRAPH_DIR}).
-Open Logseq once and switch to the graph at ${GRAPH_DIR} (one-time "Add a graph" if missing).`)
+  // ── Refuse to mutate a real, file-backed graph ────────────────────────────
+  // We inject a `fixtures` page below. In Logseq's built-in demo graph that page
+  // is in-memory (no disk) — which is exactly the bot's fresh-profile environment.
+  // But if the user has a local graph open (e.g. a dev desktop that reopened the
+  // e2e graph), create_page/insert_block writes .md files and reformats committed
+  // fixtures. get_current_graph() returns null / no path for the demo graph and a
+  // path for a file-backed graph, so abort on the latter.
+  const curGraph = await page.evaluate(() => {
+    try { return window.logseq.api.get_current_graph() } catch { return null }
+  })
+  if (curGraph?.path) {
+    throw new Error(`refusing to run: a file-backed graph is open (${curGraph.path}).
+This capture injects a 'fixtures' page and would write to / reformat that graph on disk.
+Run against a fresh Logseq with no local graph open (the built-in demo graph), or on the bot host.`)
   }
 
-  // ── Fresh plugin + fixtures page ──────────────────────────────────────────
-  await page.evaluate((id) => window.LSPluginCore.reload(id), PLUGIN_ID)
+  // ── Load the plugin (no "Load unpacked" dialog) ───────────────────────────
+  // Fresh run: register from this checkout. Re-run/attach: the plugin is already
+  // registered, so reload it to pick up a fresh dist/ build instead.
+  const alreadyLoaded = await page.evaluate((id) => {
+    try { return Array.from(window.LSPluginCore.registeredPlugins.keys()).includes(id) } catch { return false }
+  }, PLUGIN_ID)
+  if (alreadyLoaded) {
+    await page.evaluate((id) => window.LSPluginCore.reload(id), PLUGIN_ID)
+  } else {
+    const res = await page.evaluate(async (dir) => {
+      try { await window.LSPluginCore.register({ url: dir }); return 'ok' }
+      catch (e) { return 'ERR:' + (e?.message || String(e)) }
+    }, CHECKOUT)
+    if (res !== 'ok') throw new Error(`plugin register failed: ${res}`)
+    await page.waitForFunction((id) => {
+      try { return Array.from(window.LSPluginCore.registeredPlugins.keys()).includes(id) } catch { return false }
+    }, PLUGIN_ID, { timeout: RENDER_TIMEOUT_MS })
+  }
+  // Give the plugin a beat to mount its macro renderer before injecting blocks.
+  await sleep(1500)
+
+  // ── Build the fixtures page from scratch via the editor API ────────────────
+  const injected = await page.evaluate(async (fx) => {
+    const api = window.logseq.api
+    try { await api.delete_page('fixtures') } catch { /* first run: no page yet */ }
+    await api.create_page('fixtures', {}, { redirect: false, createFirstBlock: false })
+    let n = 0
+    for (const f of fx) {
+      const parent = await api.append_block_in_page('fixtures', '**' + f.label + '**')
+      if (!parent?.uuid) return { ok: false, where: f.label }
+      await api.insert_block(parent.uuid, f.content, { sibling: false })
+      n++
+    }
+    return { ok: true, n }
+  }, fixtures)
+  if (!injected.ok) throw new Error(`block injection failed at fixture "${injected.where}"`)
+
+  // The final insert_block leaves the last block focused in edit mode, where
+  // Logseq shows its raw markdown instead of the rendered fenced-code result —
+  // so the bottom fixture (the `broken` error case) never renders. Exit editing
+  // and bounce through another page so every block re-mounts in display mode.
+  await page.evaluate(() => { try { window.logseq.api.exit_editing_mode(true) } catch { /* not editing */ } })
+  await page.evaluate(() => window.logseq.api.push_state('page', { name: 'contents' }))
+  await sleep(500)
   await page.evaluate((name) => window.logseq.api.push_state('page', { name }), FIXTURES_PAGE)
 
-  // Expected: 7 fixture blocks total, exactly one of which (broken) errors.
+  // Expected: one rendered diagram per fixture; the `broken` fixture errors.
   await page.waitForFunction(
     (n) => {
       const figs = document.querySelectorAll('.diagram-blocks-root .diagram-blocks-figure svg').length
       const errs = document.querySelectorAll('.diagram-blocks-root .diagram-blocks-error').length
       return figs + errs >= n && errs >= 1
     },
-    7, { timeout: RENDER_TIMEOUT_MS },
+    fixtures.length, { timeout: RENDER_TIMEOUT_MS },
   )
 
   mkdirSync(OUT, { recursive: true })
@@ -161,7 +241,7 @@ Open Logseq once and switch to the graph at ${GRAPH_DIR} (one-time "Add a graph"
   // opacity transition (120ms) to ensure any hover chrome fully fades out.
   // Fixture captures are deliberately hover-free; tier-A goldens document the toolbar.
   await page.mouse.move(0, 0)
-  await new Promise((r) => setTimeout(r, 300))
+  await sleep(300)
 
   // Inject CSS to deterministically suppress hover/focus chrome during fixture
   // captures. Under Xvfb the X server's real cursor position (often screen centre)
@@ -313,7 +393,7 @@ Open Logseq once and switch to the graph at ${GRAPH_DIR} (one-time "Add a graph"
   while (Date.now() < toastDeadline) {
     toastCapture = await page.evaluate(() => window.__toastCapture ?? null)
     if (toastCapture) break
-    await new Promise((r) => setTimeout(r, 100))
+    await sleep(100)
   }
   // Clean up the observer if still attached (e.g. toast never fired)
   await page.evaluate(() => { window.__toastObserver?.disconnect(); window.__toastObserver = null })
@@ -349,7 +429,7 @@ Open Logseq once and switch to the graph at ${GRAPH_DIR} (one-time "Add a graph"
   for (const f of written) {
     if (statSync(f).size === 0) problems.push(`zero-byte: ${f}`)
   }
-  if (written.length < 8) problems.push(`expected ≥8 captures, wrote ${written.length}`)
+  if (written.length < fixtures.length + 1) problems.push(`expected ≥${fixtures.length + 1} captures, wrote ${written.length}`)
   if (problems.length) throw new Error('capture problems:\n' + problems.map((p) => '  - ' + p).join('\n'))
   console.log(`wrote ${written.length} captures to ${OUT}/`)
 } finally {
