@@ -103,8 +103,74 @@ describe('renderInto', () => {
     // now resolve the pending render
     resolve(0, { ok: true, svg: '<svg data-theme="late"></svg>' })
     await tick()
-    // container was cleared by dispose and must not have been re-populated
+    // The render never completed before dispose, so the container was naturally
+    // empty; the disposed-flag guard prevents the late render from populating it.
     expect(el.querySelector('svg')).toBeNull()
+  })
+
+  it('does not clear the container on dispose', async () => {
+    const el = document.createElement('div')
+    const store = new ThemeStore('auto', 'light')
+    const dispose = renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, getPngScale: () => 2 })
+    await tick()
+    expect(el.querySelector('svg')).not.toBeNull()
+    dispose()
+    // Last-good diagram stays in the DOM so the next renderInto can render over it (no flash).
+    expect(el.querySelector('svg')).not.toBeNull()
+  })
+
+  it('shows error badge over last-good diagram on subsequent error', async () => {
+    const el = document.createElement('div')
+    const store = new ThemeStore('auto', 'light')
+    // First renderInto succeeds and leaves a good diagram in the DOM.
+    const dispose = renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, getPngScale: () => 2 })
+    await tick()
+    expect(el.querySelector('svg')).not.toBeNull()
+    dispose()
+
+    // Second renderInto (simulating an edit) uses a failing renderer.
+    const failing: DiagramRenderer = {
+      languages: ['mermaid'],
+      render: async () => ({ ok: false, error: { message: 'bad syntax' } }),
+    }
+    renderInto(el, 'oops', { renderer: failing, themeStore: store, getPngScale: () => 2 })
+    await tick()
+    // Last-good SVG stays visible, flagged with a badge; no full error card.
+    expect(el.querySelector('svg')).not.toBeNull()
+    const badge = el.querySelector('.diagram-blocks-error-badge')
+    expect(badge).not.toBeNull()
+    expect(badge!.getAttribute('title')).toBe('bad syntax')
+    expect(el.querySelector('.diagram-blocks-error')).toBeNull()
+  })
+
+  it('shows loading spinner on existing diagram after 500 ms', async () => {
+    vi.useFakeTimers()
+    try {
+      const el = document.createElement('div')
+      const store = new ThemeStore('auto', 'light')
+      // First renderInto completes, leaving a good diagram.
+      const dispose = renderInto(el, 'graph TD; A-->B', { renderer: okRenderer, themeStore: store, getPngScale: () => 2 })
+      await vi.runAllTimersAsync()
+      expect(el.querySelector('svg')).not.toBeNull()
+      dispose()
+
+      // Second renderInto starts but its render does not resolve.
+      const { renderer, resolve } = deferredRenderer()
+      renderInto(el, 'graph TD; A-->B', { renderer, themeStore: store, getPngScale: () => 2 })
+      await Promise.resolve() // let draw() reach the await before timers fire
+
+      await vi.advanceTimersByTimeAsync(499)
+      expect(el.querySelector('.diagram-blocks-loading')).toBeNull()
+      await vi.advanceTimersByTimeAsync(2)
+      expect(el.querySelector('.diagram-blocks-loading')).not.toBeNull()
+
+      // Resolving the render clears the spinner.
+      resolve(0, { ok: true, svg: '<svg data-theme="done"></svg>' })
+      await vi.runAllTimersAsync()
+      expect(el.querySelector('.diagram-blocks-loading')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sets opaque white background on svg when pinned light-designed theme contradicts dark mode', async () => {
