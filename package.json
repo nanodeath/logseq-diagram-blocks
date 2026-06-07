@@ -16,13 +16,7 @@
     "title": "Diagram Blocks",
     "icon": "./icon.png"
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.5.0",
-      "onFail": "download"
-    }
-  },
+  "packageManager": "pnpm@11.5.2",
   "type": "module",
   "dependencies": {
     "@iconify-json/fa6-brands": "^1.2.6",
